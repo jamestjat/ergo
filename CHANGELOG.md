@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-03-01
+
+### Fixed
+- `ergo plan` unknown-field suggestions are now scope-aware: top-level typos suggest top-level keys, and task-level typos can suggest task keys like `after`.
+- Plan parsing now handles adjacent transposition typos for scoped suggestions (for example `aftre` -> `after`) without loosening strict unknown-key rejection.
+
+### Tests
+- Added regression coverage for plan unknown-field scope detection and scoped suggestion behavior for both top-level and nested task fields.
+
 ## [0.11.0] - 2026-02-28
 
 ### Added
