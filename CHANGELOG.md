@@ -30,27 +30,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.11.0] - 2026-02-28
 
 ### Added
-- New `ergo plan` command to create one epic, many tasks, and dependency edges from a single JSON document.
-- Plan-mode JSON output contract (`kind=plan`) with epic metadata, ordered task IDs/titles, and dependency edges (`from_id`, `to_id`, `type`).
-- Dedicated plan input parser/validator covering duplicate titles, dangling `after` references, self-dependencies, and cycle rejection.
+- New `ergo plan` command to create a full feature plan in one step (epic + tasks + ordering) from a single JSON payload.
+- Structured `--json` response for `plan` with the created epic, tasks, and dependency edges.
 
 ### Changed
-- Multi-event mutation writes now use transaction-style atomic replacement helpers (temp file + fsync + rename) under a single lock.
-- `compact` now uses the shared atomic replacement path to keep write behavior consistent.
-- Task runner descriptions in `Taskfile.yml` were rewritten to be intent-focused and more informative.
+- Multi-event writes now use atomic replacement, which avoids partial writes if something fails mid-operation.
+- `compact` now uses the same atomic write path for consistency.
+- Task runner descriptions in `Taskfile.yml` are clearer and more intent-focused.
 
 ### Fixed
-- `ergo plan` now preserves user-provided title/body text exactly, matching existing `new task` / `new epic` behavior.
+- `ergo plan` now preserves title/body text exactly as provided, matching existing `new task` and `new epic` behavior.
 
-### Documentation
-- Updated `ergo --help`, `ergo quickstart`, and `docs/spec.md` for `plan` semantics, error taxonomy (`parse_error` vs `validation_failed`), and v1 scope.
-- Added and refined proposal notes in `docs/proposal-ergo-plan.md` to match implemented behavior and contracts.
+### Why this matters
+- You can create and sequence a real feature plan with one command instead of many manual steps.
+- Failures are safer: plan creation no longer risks leaving partially-written state.
+
+### Compatibility
+- No removals or breaking flag changes in this release.
+- `plan` follows strict JSON input validation and returns actionable `parse_error` / `validation_failed` responses.
 
 ### Tests
-- Added unit coverage for plan parse/validation edge cases (unknown fields, malformed JSON, duplicate/dangling/cycle/self-dependency).
-- Added internal `RunPlan` tests to improve command-path coverage and verify error JSON behavior directly.
-- Added integration tests for successful plan creation, dependency/readiness progression, and no-partial-write guarantees on failure.
-- Added storage tests for atomic append success/rollback semantics.
+- Added unit, command-path, integration, and storage tests for `plan` behavior, validation failures, dependency semantics, and atomic rollback guarantees.
+
+### Documentation
+- Updated `ergo --help`, `ergo quickstart`, and `docs/spec.md` to cover `plan` behavior and JSON/error contracts.
 
 ## [0.10.3] - 2026-02-18
 
