@@ -5,6 +5,7 @@ package ergo
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -285,6 +286,9 @@ func TestAppendEventsAtomically_AppendsAndReplays(t *testing.T) {
 }
 
 func TestAppendEventsAtomically_FailureLeavesOriginalFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os.Chmod cannot make directories unwritable on Windows")
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, plansFileName)
 	now := time.Now().UTC()

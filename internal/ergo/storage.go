@@ -397,8 +397,8 @@ type ResultEvidence struct {
 func validateResultPath(repoDir, relPath string) (string, error) {
 	relPath = filepath.Clean(relPath)
 
-	// Must be relative (no leading /)
-	if filepath.IsAbs(relPath) {
+	// Must be relative — reject absolute paths and drive-relative paths (e.g. \docs on Windows)
+	if filepath.IsAbs(relPath) || strings.HasPrefix(relPath, string(filepath.Separator)) {
 		return "", fmt.Errorf("result path must be relative: %s", relPath)
 	}
 
