@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -290,7 +289,7 @@ func RunClaimOldestReady(epicID string, opts GlobalOptions) error {
 		return errors.New("claim requires --agent")
 	}
 
-	err = withLock(lockPath, syscall.LOCK_EX, func() error {
+	err = withLock(lockPath, func() error {
 		graph, err := loadGraph(dir)
 		if err != nil {
 			return err
@@ -422,7 +421,7 @@ func applySetUpdates(dir string, opts GlobalOptions, id string, updates map[stri
 		}
 	}
 
-	return withLock(lockPath, syscall.LOCK_EX, func() error {
+	return withLock(lockPath, func() error {
 		graph, err := loadGraph(dir)
 		if err != nil {
 			return err
@@ -1151,7 +1150,7 @@ func RunCompact(opts GlobalOptions) error {
 	}
 	lockPath := filepath.Join(dir, "lock")
 	eventsPath := getEventsPath(dir)
-	if err := withLock(lockPath, syscall.LOCK_EX, func() error {
+	if err := withLock(lockPath, func() error {
 		events, err := readEvents(eventsPath)
 		if err != nil {
 			return err

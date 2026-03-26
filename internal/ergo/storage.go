@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -251,15 +250,6 @@ func appendEventsAtomically(path string, existing, appended []Event) error {
 	return replaceEventsAtomically(path, merged)
 }
 
-func syncDir(path string) error {
-	dir, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer dir.Close()
-	return dir.Sync()
-}
-
 func writeAll(w *os.File, data []byte) error {
 	for len(data) > 0 {
 		n, err := w.Write(data)
@@ -274,7 +264,7 @@ func writeAll(w *os.File, data []byte) error {
 func writeLinkEvent(dir string, opts GlobalOptions, eventType, from, to string) error {
 	lockPath := filepath.Join(dir, "lock")
 	eventsPath := getEventsPath(dir)
-	return withLock(lockPath, syscall.LOCK_EX, func() error {
+	return withLock(lockPath, func() error {
 		graph, err := loadGraph(dir)
 		if err != nil {
 			return err
@@ -327,7 +317,7 @@ func createTask(dir string, opts GlobalOptions, epicID string, isEpic bool, titl
 
 func createTaskWithDir(dir string, opts GlobalOptions, lockPath, eventsPath, epicID string, isEpic bool, title, body string) (createOutput, error) {
 	var output createOutput
-	err := withLock(lockPath, syscall.LOCK_EX, func() error {
+	err := withLock(lockPath, func() error {
 		graph, err := loadGraph(dir)
 		if err != nil {
 			return err
@@ -506,7 +496,7 @@ func writeResultEvent(dir string, opts GlobalOptions, taskID, summary, relPath s
 	eventsPath := getEventsPath(dir)
 	repoDir := filepath.Dir(dir)
 
-	return withLock(lockPath, syscall.LOCK_EX, func() error {
+	return withLock(lockPath, func() error {
 		graph, err := loadGraph(dir)
 		if err != nil {
 			return err

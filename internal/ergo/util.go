@@ -14,7 +14,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -40,34 +39,6 @@ func sortedMapKeys(items map[string]map[string]struct{}) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-func withLock(path string, lockType int, fn func() error) error {
-	fd, err := syscall.Open(path, syscall.O_RDONLY, 0)
-	if err != nil && os.IsNotExist(err) {
-		// The lock file is not state; it's just the synchronization primitive.
-		// If it's missing, recreate it on demand so normal commands can proceed.
-		if err := ensureFileExists(path, 0644); err != nil {
-			return err
-		}
-		fd, err = syscall.Open(path, syscall.O_RDONLY, 0)
-	}
-	if err != nil {
-		return err
-	}
-	defer syscall.Close(fd)
-
-	// Fail-fast: non-blocking lock attempt only
-	if err := syscall.Flock(fd, lockType|syscall.LOCK_NB); err != nil {
-		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
-			return ErrLockBusy
-		}
-		return err
-	}
-	defer func() {
-		_ = syscall.Flock(fd, syscall.LOCK_UN)
-	}()
-	return fn()
 }
 
 func ensureFileExists(path string, mode os.FileMode) error {

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
@@ -41,7 +40,7 @@ func RunPlan(args []string, opts GlobalOptions) error {
 	eventsPath := getEventsPath(dir)
 
 	var out planOutput
-	if err := withLock(lockPath, syscall.LOCK_EX, func() error {
+	if err := withLock(lockPath, func() error {
 		events, err := readEvents(eventsPath)
 		if err != nil {
 			return err
