@@ -1,20 +1,19 @@
 ---
 name: ergo
 description: >-
-  skill for the `ergo` CLI tool — a local-first, concurrency-safe
-  task/epic planner storing plans in `.ergo/` JSONL logs. Use whenever the user
-  mentions ergo, beads, .ergo, ergo plan, ergo claim, ergo set, ergo list, ergo
-  sequence, or ergo prune. Also trigger when the user wants to break
-  multi-commit work into a dependency-ordered task backlog with epics (3+
-  commits, multiple concerns like API + UI + tests), scope tasks into claimable
-  units, manage agent work queues, coordinate parallel work across agents, or
-  update task state (done, blocked, error, canceled) — even without naming ergo.
-  Trigger when a `.ergo/` directory exists and the user asks about plans, tasks,
-  or work status. Also trigger for "what should I work on next", "what's left
-  to do", "land the plane", "wrap up the session", or "finish up and push".
-  Do NOT trigger for other task trackers (Linear, Jira, Asana),
-  GitHub/GitLab project boards, strategic roadmap planning, build task runners
-  (Taskfile, Make), or single-file bug fixes and refactors.
+  ALWAYS use this skill when the user mentions ergo, beads, .ergo/, or any ergo
+  command (plan, claim, set, list, show, sequence, prune, compact, init, where).
+  ALWAYS use this skill when a `.ergo/` directory exists in the project and the
+  user asks about tasks, plans, work status, or what to work on next.
+  ALWAYS use this skill when the user wants to: break a feature into multiple
+  tasks with dependencies (especially 3+ commits across API, UI, tests, docs);
+  coordinate parallel work across agent teammates using a shared task backlog;
+  claim tasks, mark tasks done/blocked/error, or manage task state; wrap up a
+  session ("land the plane", "finish up and push", "what's left to do").
+  This skill provides the `ergo` CLI — a concurrency-safe task/epic planner
+  storing plans in `.ergo/` JSONL logs, designed for multi-agent coordination.
+  Do NOT trigger for Linear, Jira, Asana, GitHub project boards, Taskfile/Make
+  build runners, strategic roadmap planning, or single-file bug fixes.
 ---
 
 <!-- TOC: When to Use | Planning Mindset | Planning Methodology | Critical Rules | Quick Workflow | Execution | Landing the Plane | CLI Reference | State Machine | Troubleshooting | References -->
@@ -142,6 +141,62 @@ ergo --json claim --agent sonnet@agent-host
 ```bash
 ergo set ABCDEF --state done
 ```
+
+## Agent Teams Integration
+
+Ergo is the shared backlog for agent teams. Use ergo for task state — do NOT also use Claude Code's TaskCreate (dual bookkeeping causes drift).
+
+### Lead Workflow
+
+1. Create the ergo plan (epic + tasks + deps):
+   ```bash
+   ergo --json plan < plan.json
+   ```
+2. Spawn teammates with this instruction:
+
+   > Each teammate:
+   > 1. Run `ergo --json claim --agent <teammate-name>@claude-code` to claim the next ready task
+   > 2. Read the returned task body for context and acceptance criteria
+   > 3. Implement the task
+   > 4. Run validation gates from the task body
+   > 5. Mark done: `ergo set <id> --state done --result-path <file> --result-summary "..."`
+   > 6. Claim next ready task. Repeat until no ready tasks remain.
+   > If blocked: `ergo set <id> --state blocked --body "reason"`
+   > Never leave a task in `doing` state.
+
+3. Monitor progress: `ergo --json list` shows all states and claims.
+4. Redirect teammates via SendMessage if off-track.
+
+### Teammate Workflow
+
+```bash
+# 1. Claim next ready task
+ergo --json claim --agent sonnet@claude-code
+
+# 2. Implement (context is in the task body)
+
+# 3. Mark done with results
+ergo set ABCDEF --state done --result-path src/auth.go --result-summary "Auth module"
+
+# 4. Claim next — repeat until "No ready ergo tasks."
+ergo --json claim --agent sonnet@claude-code
+```
+
+### Coordination Rules
+
+- **Single source of truth**: ergo owns task state. Do not duplicate in Claude Code TaskCreate.
+- **Race-safe claiming**: multiple teammates can call `ergo claim` simultaneously — exactly one wins per task. Losers get the next ready task.
+- **Dependency enforcement**: tasks with unmet deps won't appear in claim results. Ergo handles ordering automatically.
+- **Agent identity**: each teammate uses a unique `--agent` value (e.g., `sonnet-1@claude-code`, `sonnet-2@claude-code`).
+
+### Landing the Plane (Team Context)
+
+When the team finishes:
+1. All teammates mark their tasks `done`/`blocked`/`error` before stopping
+2. Lead verifies: `ergo --json list` — no tasks in `doing` state
+3. Lead commits `.ergo/` and pushes (non-negotiable)
+4. Lead prunes: `ergo prune --yes`
+5. Lead hands off with `ergo --json list --ready` for next session
 
 ## Executing Ergo Plans
 
