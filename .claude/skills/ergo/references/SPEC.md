@@ -51,12 +51,14 @@ States: `todo | doing | done | blocked | canceled | error`
 
 | From | To |
 |------|----|
-| `todo` | `doing`, `blocked`, `canceled` |
-| `doing` | `done`, `blocked`, `error`, `canceled` |
-| `blocked` | `todo`, `doing`, `canceled` |
+| `todo` | `doing`, `done`, `blocked`, `canceled` |
+| `doing` | `todo`, `done`, `blocked`, `error`, `canceled` |
+| `blocked` | `todo`, `doing`, `done`, `canceled` |
 | `error` | `doing` (retry), `todo` (reassign), `canceled` |
 | `done` | `todo` (reopen) |
 | `canceled` | `todo` (reopen) |
+
+No-op transitions (same state → same state) are always valid.
 
 ### Claim Invariants
 

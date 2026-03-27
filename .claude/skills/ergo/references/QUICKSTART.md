@@ -46,7 +46,7 @@ ergo set ABCDEF --state blocked
 
 ## 3. Create Work
 
-Prefer flags for simple inputs. Use `echo` for JSON piping when needed. All fields are strings. Unknown keys rejected with suggestions.
+Prefer flags for simple inputs — they work identically on all OSes. When JSON piping is needed, use shell-appropriate quoting. All fields are strings. Unknown keys rejected with suggestions.
 
 ```bash
 # Task (flags — preferred, cross-platform)
@@ -84,10 +84,17 @@ ergo set ABCDEF --state done
 
 ## 3d. Plan a Feature (single JSON document)
 
-Create epic + tasks + dependencies atomically. `after` references task titles (exact, case-sensitive).
+Create epic + tasks + dependencies atomically. `after` references task titles (exact, case-sensitive). `plan` requires JSON stdin — use shell-appropriate quoting.
 
 ```bash
+# bash / zsh / Git Bash
 echo '{"title":"Auth","tasks":[{"title":"Middleware"},{"title":"Login","after":["Middleware"]}]}' | ergo --json plan
+
+# PowerShell
+'{"title":"Auth","tasks":[{"title":"Middleware"},{"title":"Login","after":["Middleware"]}]}' | ergo --json plan
+
+# Any shell — temp file
+ergo --json plan < plan.json
 ```
 
 Edge semantics: when `B.after=["A"]`, B depends on A.

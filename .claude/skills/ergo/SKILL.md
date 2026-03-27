@@ -41,8 +41,27 @@ description: >-
 | **`todo`/`done`/`canceled` clear claim** | Ownership only while active |
 | **No cross-kind deps** | task-to-task or epic-to-epic only; no task-to-epic |
 | **No cycles** | Dependency cycles are rejected |
-| **Prefer flags; use `echo` for JSON piping** | Flags work on all OSes; `echo '{...}' \| ergo` works cross-platform (bash, PowerShell, cmd). Avoid `printf` (Unix-only) and heredocs (fragile). |
+| **Prefer flags over JSON piping** | Flags work identically on all OSes. JSON piping requires shell-aware quoting (see [Shell Compatibility](#shell-compatibility)). |
 | **Don't commit `.ergo/` per-task** | Commit `.ergo/` once when epic completes |
+
+## Shell Compatibility
+
+**Flags** (`--title`, `--state`, `--body`, etc.) work identically on every OS and shell. **Always prefer flags** for `new` and `set`.
+
+The only command that *requires* JSON stdin is **`plan`**. When you must pipe JSON, use the correct quoting for your shell:
+
+| Shell | JSON piping syntax |
+|-------|-------------------|
+| **bash / zsh / Git Bash** | `echo '{"title":"Auth","tasks":[...]}' \| ergo --json plan` |
+| **PowerShell** | `'{"title":"Auth","tasks":[...]}' \| ergo --json plan` |
+| **cmd.exe** | `echo {"title":"Auth","tasks":[...]} \| ergo --json plan` |
+
+> **Detect your shell:** Check the `SHELL` env var, or `$PSVersionTable` (PowerShell), or `%COMSPEC%` (cmd). When in doubt, write JSON to a temp file and pipe it: `ergo --json plan < plan.json`
+
+For `--body-stdin`, double-quoted strings work everywhere:
+```
+echo "## Goal" | ergo new task --body-stdin --title "Login flow"
+```
 
 ## Planning Methodology
 
@@ -70,8 +89,16 @@ Task body template (trim to fit — omit empty sections):
 ## Goal
 - <1–3 bullets: concrete outcome>
 
+## Context
+- <Background, links to docs/designs — omit when obvious from the goal>
+
 ## Acceptance Criteria
 - <Observable behavior, edge cases, definition of done>
+
+## Checkpoint (rare — only when a decision requires an implementation artifact)
+- Produce: <specific artifact, e.g., "ASCII mockup of the banner layout">
+- Then ask: <specific question, e.g., "Does this information hierarchy work?">
+- Do not proceed past this point without user approval.
 
 ## Validation Gates
 - <Exact commands to prove it works — tests, lint, format>
@@ -80,6 +107,10 @@ Task body template (trim to fit — omit empty sections):
 ### Dependencies
 
 Add edges only for true ordering constraints — maximize parallelism.
+
+### Continuous Critique
+
+Critique as you build the plan — when writing one task reveals that earlier tasks should be merged or split, fix it immediately rather than deferring to a review pass.
 
 ### Plan Review Checklist
 
@@ -90,6 +121,7 @@ Before presenting to the user:
 - **Validation** — every task has runnable gates?
 - **Risk** — 1–3 highest-risk tasks identified; spikes added?
 - **Open calls** — every judgment call resolved, not deferred?
+- **Cruft** — will the planned work leave behind unowned debt? Add cleanup tasks if so.
 
 Present an executive summary to the user for approval before implementation.
 
@@ -143,10 +175,17 @@ echo "## Goal" | ergo new task --body-stdin --title "Login flow" --epic OFKSTE
 
 ### Plan a Feature (atomic)
 
-Create epic + tasks + dependencies in one call. `after` references task titles (exact, case-sensitive).
+Create epic + tasks + dependencies in one call. `after` references task titles (exact, case-sensitive). `plan` requires JSON stdin — use shell-appropriate quoting (see [Shell Compatibility](#shell-compatibility)).
 
 ```bash
+# bash / zsh / Git Bash
 echo '{"title":"Auth","body":"User auth system","tasks":[{"title":"Middleware","body":"JWT validation"},{"title":"Login","body":"POST /login","after":["Middleware"]},{"title":"Signup","body":"POST /signup","after":["Middleware"]}]}' | ergo --json plan
+
+# PowerShell
+'{"title":"Auth","body":"User auth system","tasks":[{"title":"Middleware","body":"JWT validation"},{"title":"Login","body":"POST /login","after":["Middleware"]},{"title":"Signup","body":"POST /signup","after":["Middleware"]}]}' | ergo --json plan
+
+# Any shell — write to temp file first
+ergo --json plan < plan.json
 ```
 
 ### Claim Work
@@ -308,7 +347,7 @@ Epics only support: `title`, `body`.
 - Leaving tasks in `doing` after finishing work
 - Forgetting `--agent` when claiming
 - Creating task-to-epic dependencies (forbidden — same-kind only)
-- Using `printf` (Unix-only) or heredocs for JSON input — use flags or `echo` for cross-platform compatibility
+- Using `printf` (Unix-only) or heredocs for JSON input — use flags when possible, shell-appropriate quoting when piping (see [Shell Compatibility](#shell-compatibility))
 - Assuming epics have state (they don't — they're structural grouping nodes)
 - Writing "TBD"/"Consult Me" in task bodies instead of resolving during planning
 - Committing `.ergo/` in every per-task commit
