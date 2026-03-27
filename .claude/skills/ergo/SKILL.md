@@ -1,22 +1,23 @@
 ---
 name: ergo
 description: >-
-  Official skill for the `ergo` CLI tool — a local-first, concurrency-safe
+  skill for the `ergo` CLI tool — a local-first, concurrency-safe
   task/epic planner storing plans in `.ergo/` JSONL logs. Use whenever the user
-  mentions ergo, .ergo, ergo plan, ergo claim, ergo set, ergo list, ergo
+  mentions ergo, beads, .ergo, ergo plan, ergo claim, ergo set, ergo list, ergo
   sequence, or ergo prune. Also trigger when the user wants to break
   multi-commit work into a dependency-ordered task backlog with epics (3+
   commits, multiple concerns like API + UI + tests), scope tasks into claimable
   units, manage agent work queues, coordinate parallel work across agents, or
   update task state (done, blocked, error, canceled) — even without naming ergo.
   Trigger when a `.ergo/` directory exists and the user asks about plans, tasks,
-  or work status. Also trigger for "what should I work on next" or "what's left
-  to do". Do NOT trigger for other task trackers (Linear, Jira, Asana),
+  or work status. Also trigger for "what should I work on next", "what's left
+  to do", "land the plane", "wrap up the session", or "finish up and push".
+  Do NOT trigger for other task trackers (Linear, Jira, Asana),
   GitHub/GitLab project boards, strategic roadmap planning, build task runners
   (Taskfile, Make), or single-file bug fixes and refactors.
 ---
 
-<!-- TOC: When to Use | Critical Rules | Planning | Quick Workflow | Essential Commands | Dependencies | Results | State Machine | Execution | Troubleshooting | References -->
+<!-- TOC: When to Use | Planning Mindset | Planning Methodology | Critical Rules | Quick Workflow | Execution | Landing the Plane | CLI Reference | State Machine | Troubleshooting | References -->
 
 # ergo -- Fast Task/Epic Planning for Agents
 
@@ -30,42 +31,19 @@ description: >-
 
 **Unsure?** Ask: "Want an ergo plan first, or should I just implement?"
 
-## Critical Rules for Agents
+## Planning Mindset
 
-| Rule | Why |
-|------|-----|
-| **ALWAYS use `--json`** | Structured output; agents must never parse human-mode text |
-| **ALWAYS pass `--agent`** | Required for claims; format: `<model>@<hostname>` |
-| **Never leave tasks `doing`** | Always resolve to `done`, `blocked`, `error`, or `canceled` |
-| **`doing`/`error` require claim** | Shows who's working / who failed |
-| **`todo`/`done`/`canceled` clear claim** | Ownership only while active |
-| **No cross-kind deps** | task-to-task or epic-to-epic only; no task-to-epic |
-| **No cycles** | Dependency cycles are rejected |
-| **Prefer flags over JSON piping** | Flags work identically on all OSes. JSON piping requires shell-aware quoting (see [Shell Compatibility](#shell-compatibility)). |
-| **Don't commit `.ergo/` per-task** | Commit `.ergo/` once when epic completes |
+The purpose of planning is to expose unknowns and force decisions *before* implementation, when you have the most context and the cheapest opportunity to change course.
 
-## Shell Compatibility
+**The approach:** Draft right-sized tasks to surface unknowns. Escalate judgment calls as they emerge — present options with tradeoffs, get an answer, record the decision. Use `spike:`-prefixed tasks for exploration that produces knowledge, not code. Include validation gates so every task is provably done. Sequence dependencies to maximize parallelism. Then do a second-pass critique and improve the plan before presenting it.
 
-**Flags** (`--title`, `--state`, `--body`, etc.) work identically on every OS and shell. **Always prefer flags** for `new` and `set`.
-
-The only command that *requires* JSON stdin is **`plan`**. When you must pipe JSON, use the correct quoting for your shell:
-
-| Shell | JSON piping syntax |
-|-------|-------------------|
-| **bash / zsh / Git Bash** | `echo '{"title":"Auth","tasks":[...]}' \| ergo --json plan` |
-| **PowerShell** | `'{"title":"Auth","tasks":[...]}' \| ergo --json plan` |
-| **cmd.exe** | `echo {"title":"Auth","tasks":[...]} \| ergo --json plan` |
-
-> **Detect your shell:** Check the `SHELL` env var, or `$PSVersionTable` (PowerShell), or `%COMSPEC%` (cmd). When in doubt, write JSON to a temp file and pipe it: `ergo --json plan < plan.json`
-
-For `--body-stdin`, double-quoted strings work everywhere:
-```
-echo "## Goal" | ergo new task --body-stdin --title "Login flow"
-```
+Plans are for the *implementing agent*, who may be a smaller model with less context than you. Write tasks that a capable but less-informed agent can execute without ambiguity.
 
 ## Planning Methodology
 
-Planning surfaces unknowns and decisions. **Resolve them now by asking the user.** Present options with tradeoffs, get an answer, write the decision into the epic body or task acceptance criteria. Don't write "TBD" or "Consult Me" — that creates a mid-implementation block for a future agent with less context than you have now.
+### Resolve Decisions Now
+
+**Don't write "TBD" or "Consult Me."** That creates a mid-implementation block for a future agent with less context than you have now. Present options with tradeoffs, get the user's answer, write the decision into the epic body or task acceptance criteria.
 
 The only decisions that belong as deferred checkpoints are ones that literally require an implementation artifact to evaluate (e.g., "produce a UI mockup, then get approval").
 
@@ -80,8 +58,6 @@ Each task should be:
 - **Ideally auto-verifiable** via acceptance criteria and runnable gates
 - **Split on real boundaries** only (API surface, data model, tests, docs)
 - **Friendly to smaller models** — the implementing agent might have less context than you
-
-**Spikes** produce knowledge, not code. Prefix with `spike:`. Dependent tasks should note what they're waiting to learn.
 
 Task body template (trim to fit — omit empty sections):
 
@@ -104,6 +80,14 @@ Task body template (trim to fit — omit empty sections):
 - <Exact commands to prove it works — tests, lint, format>
 ```
 
+### Spikes
+
+> **Spikes produce knowledge, not code.**
+
+Prefix exploratory tasks with `spike:`. A spike's deliverable is a decision or finding, not a commit. Dependent tasks should note what they're waiting to learn, so the spike author knows what to capture.
+
+After completing a spike, update dependent task bodies with what was learned — don't leave downstream agents to rediscover the same information.
+
 ### Dependencies
 
 Add edges only for true ordering constraints — maximize parallelism.
@@ -125,6 +109,20 @@ Before presenting to the user:
 
 Present an executive summary to the user for approval before implementation.
 
+## Critical Rules for Agents
+
+| Rule | Why |
+|------|-----|
+| **ALWAYS use `--json`** | Structured output; agents must never parse human-mode text |
+| **ALWAYS pass `--agent`** | Required for claims; format: `<model>@<hostname>` |
+| **Never leave tasks `doing`** | Always resolve to `done`, `blocked`, `error`, or `canceled` |
+| **`doing`/`error` require claim** | Shows who's working / who failed |
+| **`todo`/`done`/`canceled` clear claim** | Ownership only while active |
+| **No cross-kind deps** | task-to-task or epic-to-epic only; no task-to-epic |
+| **No cycles** | Dependency cycles are rejected |
+| **Prefer flags over JSON piping** | Flags work identically on all OSes. JSON piping requires shell-aware quoting (see [Shell Compatibility](#shell-compatibility)). |
+| **Don't commit `.ergo/` per-task** | Commit `.ergo/` once when epic completes |
+
 ## Quick Workflow
 
 ```bash
@@ -145,7 +143,80 @@ ergo --json claim --agent sonnet@agent-host
 ergo set ABCDEF --state done
 ```
 
-## Essential Commands
+## Executing Ergo Plans
+
+1. `ergo --json claim --agent <identity>` — claim a ready task
+2. Implement it. Stop and consult the user if important questions arise.
+3. Commit using repo conventions. **Do not** include `.ergo/` files in per-task commits.
+4. Mark task done:
+   - **Completion note** — update body with brief note on what was done (decisions, approach, anything non-obvious)
+   - **Result link** — attach with `result_path` if the task produced a concrete deliverable
+   - **After a spike** — update dependent tasks with what was learned
+   - If a task can't be completed, mark `blocked` or `error` — never leave `doing`
+5. **If the plan needs to change** — update it and note why. Plans are living documents.
+6. When epic is done, commit `.ergo/` state: `plan: complete <epic name>`
+
+## Landing the Plane (Session Completion)
+
+When the user says **"land the plane"** (or similar: "wrap up", "finish the session"), complete ALL steps below. The session is NOT done until `git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File remaining work** — create ergo tasks for anything that needs follow-up:
+   ```bash
+   ergo new task --title "Add integration tests for sync" --epic ABCDEF
+   ```
+
+2. **Run quality gates** (if code changed) — tests, lint, build. If gates fail, file tasks and note failures.
+
+3. **Update ergo state** — mark completed tasks done, update blocked/error tasks, attach results:
+   ```bash
+   ergo set ABCDEF --state done --result-path src/auth.go --result-summary "Auth module"
+   ergo set GHIJKL --state blocked --body "Waiting on API design decision"
+   ```
+
+4. **Commit and PUSH — NON-NEGOTIABLE:**
+   ```bash
+   # Commit .ergo/ state
+   git add .ergo/
+   git commit -m "plan: land session — <brief summary>"
+
+   # Push everything
+   git pull --rebase
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+   - The plane has NOT landed until `git push` succeeds
+   - NEVER say "ready to push when you are" — YOU push
+   - If push fails, resolve and retry until it succeeds
+   - Unpushed work breaks multi-agent coordination
+
+5. **Clean up** — prune completed work if the plan is getting large:
+   ```bash
+   ergo prune --yes              # Remove done/canceled tasks
+   git stash clear               # Clear old stashes
+   git remote prune origin       # Clean up deleted remote branches
+   ```
+
+6. **Verify** — all changes committed AND pushed, no tasks left in `doing` state:
+   ```bash
+   ergo --json list              # No tasks in doing state
+   git status                    # Clean working tree, up to date with remote
+   ```
+
+7. **Hand off** — provide context for next session:
+   - Summary of what was completed
+   - Tasks filed for follow-up
+   - Status of quality gates
+   - Recommended next task:
+     ```bash
+     ergo --json list --ready    # Show what's available next
+     ```
+   - Prompt for next session: "Continue work on `<epic>`. `<task ID>` is ready: `<title>`. `<brief context>`"
+
+## CLI Reference
+
+For the full command reference, see [references/QUICKSTART.md](references/QUICKSTART.md). Key commands below.
 
 ### Initialize
 
@@ -166,9 +237,6 @@ ergo new task --title "Hash passwords" --body "Use bcrypt" --epic OFKSTE
 # Atomic create-and-claim (claim implies state=doing)
 ergo new task --title "Fix CVE" --claim sonnet@agent-host
 
-# JSON piping (when flags aren't sufficient, e.g. complex bodies)
-echo '{"title":"Auth","body":"Signup and login"}' | ergo new epic
-
 # Multi-line body via --body-stdin (stdin is literal text, not JSON)
 echo "## Goal" | ergo new task --body-stdin --title "Login flow" --epic OFKSTE
 ```
@@ -179,113 +247,48 @@ Create epic + tasks + dependencies in one call. `after` references task titles (
 
 ```bash
 # bash / zsh / Git Bash
-echo '{"title":"Auth","body":"User auth system","tasks":[{"title":"Middleware","body":"JWT validation"},{"title":"Login","body":"POST /login","after":["Middleware"]},{"title":"Signup","body":"POST /signup","after":["Middleware"]}]}' | ergo --json plan
-
-# PowerShell
-'{"title":"Auth","body":"User auth system","tasks":[{"title":"Middleware","body":"JWT validation"},{"title":"Login","body":"POST /login","after":["Middleware"]},{"title":"Signup","body":"POST /signup","after":["Middleware"]}]}' | ergo --json plan
+echo '{"title":"Auth","body":"User auth system","tasks":[{"title":"Middleware","body":"JWT validation"},{"title":"Login","body":"POST /login","after":["Middleware"]}]}' | ergo --json plan
 
 # Any shell — write to temp file first
 ergo --json plan < plan.json
 ```
 
-### Claim Work
+### Claim, Update, View
 
 ```bash
-# Oldest ready task (deps satisfied, state=todo)
-ergo --json claim --agent sonnet@agent-host
-
-# Specific task by ID
-ergo --json claim ABCDEF --agent sonnet@agent-host
-
-# Oldest ready within an epic
-ergo --json claim --agent sonnet@agent-host --epic OFKSTE
-```
-
-If no tasks are ready: prints message, exits 0 (not an error).
-
-### Update State
-
-```bash
-# Mark done (flags — preferred, works on all OSes)
-ergo set ABCDEF --state done
-
-# Mark done with results
+ergo --json claim --agent sonnet@agent-host          # Oldest ready task
+ergo --json claim ABCDEF --agent sonnet@agent-host   # Specific task
+ergo set ABCDEF --state done                         # Mark done
 ergo set ABCDEF --state done --result-path docs/spec.md --result-summary "Spec v1"
-
-# Mark blocked
-ergo set ABCDEF --state blocked
-
-# Mark error (requires claim -- pass --agent if unclaimed)
-ergo set ABCDEF --state error --agent sonnet@agent-host
-
-# Cancel
-ergo set ABCDEF --state canceled
-
-# Reopen (done/canceled -> todo)
-ergo set ABCDEF --state todo
-
-# Update body via --body-stdin
-echo "## Status" | ergo set ABCDEF --body-stdin --state blocked
-
-# JSON piping (alternative — also cross-platform)
-echo '{"state":"done","result_path":"docs/spec.md","result_summary":"Spec v1"}' | ergo set ABCDEF
+ergo --json list                                     # Active work
+ergo --json list --ready                             # Ready tasks only
+ergo --json show ABCDEF                              # Task/epic detail
 ```
 
-### View Work
-
-```bash
-ergo --json list                       # Active work (todo/doing/blocked/error)
-                                       # Done tasks within active epics shown for context
-                                       # Orphan done tasks and fully-done epics hidden
-ergo --json list --ready               # Only ready tasks (deps satisfied, unclaimed)
-ergo --json list --epic OFKSTE         # Tasks within epic (includes done for context)
-ergo --json list --epics               # Only epics
-ergo --json list --all                 # Include done and canceled
-
-ergo --json show ABCDEF                # Task/epic detail (epics include children with bodies)
-ergo show ABCDEF                       # Human-readable Markdown
-```
-
-Flag conflicts: `--ready` and `--all` are mutually exclusive. `--epics` cannot combine with `--ready`, `--all`, or `--epic`.
-
-### Dependencies
+### Dependencies & Maintenance
 
 ```bash
 ergo sequence TASK_A TASK_B            # A before B
-ergo sequence TASK_A TASK_B TASK_C     # A then B then C (chain)
-ergo sequence rm TASK_A TASK_B         # Remove: B no longer depends on A
+ergo sequence TASK_A TASK_B TASK_C     # Chain: A then B then C
+ergo sequence rm TASK_A TASK_B         # Remove dependency
+ergo prune                             # Dry-run: preview removals
+ergo prune --yes                       # Apply: remove done/canceled + empty epics
+ergo compact                           # Collapse log to current state
 ```
 
-### Results
+## Shell Compatibility
 
-Results are pointers to project files. Multiple calls accumulate (newest first). Only attach when the task produced a concrete deliverable — don't create standalone files just to have a link.
+**Flags** (`--title`, `--state`, `--body`, etc.) work identically on every OS and shell. **Always prefer flags** for `new` and `set`.
 
-```bash
-ergo set GHIJKL --result-path docs/report.md --result-summary "Final report"
-```
+The only command that *requires* JSON stdin is **`plan`**. When you must pipe JSON, use the correct quoting for your shell:
 
-Both `result_path` and `result_summary` are required together. Summary: single-line, max 120 chars.
+| Shell | JSON piping syntax |
+|-------|-------------------|
+| **bash / zsh / Git Bash** | `echo '{"title":"Auth","tasks":[...]}' \| ergo --json plan` |
+| **PowerShell** | `'{"title":"Auth","tasks":[...]}' \| ergo --json plan` |
+| **cmd.exe** | `echo {"title":"Auth","tasks":[...]} \| ergo --json plan` |
 
-### Maintenance
-
-```bash
-ergo prune                   # Dry-run: preview what would be removed
-ergo prune --yes             # Apply: remove done/canceled tasks + empty epics
-ergo compact                 # Collapse log to current state (physical deletion)
-```
-
-## Executing Ergo Plans
-
-1. `ergo --json claim --agent <identity>` — claim a ready task
-2. Implement it. Stop and consult the user if important questions arise.
-3. Commit using repo conventions. **Do not** include `.ergo/` files in per-task commits.
-4. Mark task done:
-   - **Completion note** — update body with brief note on what was done (decisions, approach, anything non-obvious)
-   - **Result link** — attach with `result_path` if the task produced a concrete deliverable
-   - **After a spike** — update dependent tasks with what was learned
-   - If a task can't be completed, mark `blocked` or `error` — never leave `doing`
-5. **If the plan needs to change** — update it and note why. Plans are living documents.
-6. When epic is done, commit `.ergo/` state: `plan: complete <epic name>`
+> **Detect your shell:** Check the `SHELL` env var, or `$PSVersionTable` (PowerShell), or `%COMSPEC%` (cmd). When in doubt, write JSON to a temp file and pipe it: `ergo --json plan < plan.json`
 
 ## State Machine
 
@@ -300,7 +303,7 @@ ergo compact                 # Collapse log to current state (physical deletion)
 | `canceled` | `todo` (reopen) |
 | `error` | `doing` (retry), `todo` (reassign), `canceled` (give up) |
 
-`todo → done` is intentional — it allows quick completions without a claim cycle. If a task is trivial, just mark it done directly.
+`todo → done` is intentional — it allows quick completions without a claim cycle.
 
 ### Claim Invariants
 
@@ -313,41 +316,13 @@ ergo compact                 # Collapse log to current state (physical deletion)
 | `error` | **Required** (shows who failed) |
 | `canceled` | No claim (cleared) |
 
-## Global Flags
-
-```
---dir <path>       Discovery start (or .ergo path directly)
---agent <identity> Agent ID for claims (e.g. sonnet@agent-host)
---json             JSON output (required for agents)
---quiet, -q        Suppress non-essential output
---verbose, -v      Verbose debug output
--h, --help         Show help
--V, --version      Print version
-```
-
-## JSON Input Fields (all strings)
-
-Unknown keys are rejected with "did you mean?" suggestions.
-
-| Field | new | set | Notes |
-|-------|-----|-----|-------|
-| `title` | required | optional | |
-| `body` | optional | optional | |
-| `epic` | optional | optional | Epic ID; `""` to unassign (JSON only) |
-| `state` | optional | optional | todo/doing/done/blocked/canceled/error |
-| `claim` | optional | optional | Agent ID; `""` to unclaim (JSON only) |
-| `result_path` | - | optional | File path (requires result_summary) |
-| `result_summary` | - | optional | One-liner (requires result_path) |
-
-Epics only support: `title`, `body`.
-
 ## Anti-Patterns
 
 - Parsing human-mode output instead of using `--json`
 - Leaving tasks in `doing` after finishing work
 - Forgetting `--agent` when claiming
 - Creating task-to-epic dependencies (forbidden — same-kind only)
-- Using `printf` (Unix-only) or heredocs for JSON input — use flags when possible, shell-appropriate quoting when piping (see [Shell Compatibility](#shell-compatibility))
+- Using `printf` (Unix-only) or heredocs for JSON input — use flags when possible, shell-appropriate quoting when piping
 - Assuming epics have state (they don't — they're structural grouping nodes)
 - Writing "TBD"/"Consult Me" in task bodies instead of resolving during planning
 - Committing `.ergo/` in every per-task commit
@@ -362,7 +337,7 @@ ergo --json list             # Check current state
 ergo quickstart              # Full reference manual
 ```
 
-**"Lock busy"**: Another ergo process holds the lock. Lock is fail-fast (non-blocking), so just retry the command. Don't wait long — the lock is only held during a single mutation.
+**"Lock busy"**: Another ergo process holds the lock. Lock is fail-fast (non-blocking), so just retry the command.
 
 **Missing tasks in `list`?** Default view hides done/canceled orphans and fully-done epics. Use `--all` to see everything.
 
