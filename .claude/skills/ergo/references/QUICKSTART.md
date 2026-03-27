@@ -21,7 +21,7 @@ ergo --json claim --agent sonnet@agent-host
 # 2. Do the work described in the task body
 
 # 3. Attach results and set state
-printf '%s' '{"result_path":"docs/x.md","result_summary":"Spec v1","state":"done"}' | ergo set ABCDEF
+ergo set ABCDEF --state done --result-path docs/x.md --result-summary "Spec v1"
 # Never leave tasks in doing. Always set done, blocked, error, or canceled.
 
 # 4. Pull full epic context
@@ -39,25 +39,28 @@ ergo claim ABCDEF --agent sonnet@agent-host
 ergo claim --agent sonnet@agent-host --epic ABCDEF
 
 # Change state (uses existing claim if present)
-printf '%s' '{"state":"blocked"}' | ergo set ABCDEF
+ergo set ABCDEF --state blocked
 
 # If no tasks ready: prints message, exit 0
 ```
 
-## 3. Create Work (JSON stdin)
+## 3. Create Work
 
-Use `printf '%s'` for reliable JSON delivery. All fields are strings. Unknown keys rejected with suggestions.
+Prefer flags for simple inputs. Use `echo` for JSON piping when needed. All fields are strings. Unknown keys rejected with suggestions.
 
 ```bash
-# Task
-printf '%s' '{"title":"Login","body":"Implement signup","epic":"OFKSTE"}' | ergo new task
+# Task (flags — preferred, cross-platform)
+ergo new task --title "Login" --body "Implement signup" --epic OFKSTE
 
 # Epic
-printf '%s' '{"title":"Auth","body":"Signup/Login epic"}' | ergo new epic
+ergo new epic --title "Auth" --body "Signup/Login epic"
 
 # Atomic create-and-claim
-printf '%s' '{"title":"Fix CVE","claim":"sonnet@agent-host"}' | ergo new task
+ergo new task --title "Fix CVE" --claim sonnet@agent-host
 # claim implies state=doing unless state explicitly set
+
+# JSON piping (when flags aren't sufficient)
+echo '{"title":"Login","body":"Implement signup","epic":"OFKSTE"}' | ergo new task
 ```
 
 ### Body from stdin (--body-stdin)
@@ -66,10 +69,10 @@ When body is multi-line markdown. Stdin is literal text, metadata via flags.
 
 ```bash
 # Create
-printf '%s\n' '## Goal' '- Do the thing' | ergo new task --body-stdin --title "Do the thing"
+echo "## Goal" | ergo new task --body-stdin --title "Do the thing"
 
 # Update
-printf '%s\n' '## Status' '- Waiting on review' | ergo set ABCDEF --body-stdin --state blocked
+echo "## Status" | ergo set ABCDEF --body-stdin --state blocked
 ```
 
 ### Flags only (TTY)
@@ -84,7 +87,7 @@ ergo set ABCDEF --state done
 Create epic + tasks + dependencies atomically. `after` references task titles (exact, case-sensitive).
 
 ```bash
-printf '%s' '{"title":"Auth","tasks":[{"title":"Middleware"},{"title":"Login","after":["Middleware"]}]}' | ergo --json plan
+echo '{"title":"Auth","tasks":[{"title":"Middleware"},{"title":"Login","after":["Middleware"]}]}' | ergo --json plan
 ```
 
 Edge semantics: when `B.after=["A"]`, B depends on A.
@@ -102,10 +105,10 @@ ergo list --ready                        # Tasks with all deps done/canceled
 
 ```bash
 # Blocked (waiting on human/external)
-printf '%s' '{"state":"blocked"}' | ergo set ABCDEF
+ergo set ABCDEF --state blocked
 
 # Error (requires claim)
-printf '%s' '{"state":"error"}' | ergo set ABCDEF
+ergo set ABCDEF --state error --agent sonnet@agent-host
 # If unclaimed, pass --agent or set claim in JSON
 ```
 
@@ -127,7 +130,7 @@ ergo compact                 # Rewrite log (physical deletion)
 Results are pointers to project files (relative paths). Multiple calls accumulate, newest first.
 
 ```bash
-printf '%s' '{"result_path":"docs/report.md","result_summary":"Final report"}' | ergo set GHIJKL
+ergo set GHIJKL --result-path docs/report.md --result-summary "Final report"
 ergo show GHIJKL --json | jq '.results[]'
 ```
 

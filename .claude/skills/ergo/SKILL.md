@@ -2,35 +2,18 @@
 name: ergo
 description: >-
   Official skill for the `ergo` CLI tool — a local-first, concurrency-safe
-  task/epic planner that stores plans in `.ergo/` JSONL logs. Use this skill
-  whenever the user mentions ergo, .ergo, ergo plan, ergo claim, ergo set, ergo
-  list, ergo sequence, or ergo prune. Also trigger when the user wants to break
+  task/epic planner storing plans in `.ergo/` JSONL logs. Use whenever the user
+  mentions ergo, .ergo, ergo plan, ergo claim, ergo set, ergo list, ergo
+  sequence, or ergo prune. Also trigger when the user wants to break
   multi-commit work into a dependency-ordered task backlog with epics (3+
-  commits, multiple concerns like API + UI + tests), scope implementation tasks
-  into claimable units, or manage agent work queues — even without naming ergo
-  explicitly. Do NOT trigger for other task trackers (Linear, Jira, Asana),
-  strategic roadmap planning, or single-file bug fixes and refactors.
-license: MIT
-domain: project-management
-role: specialist
-scope: operations
-output-format: commands
-triggers:
-  - ergo
-  - task planning
-  - epic
-  - feature plan
-  - claim task
-  - ready work
-  - work queue
-  - sequence
-  - dependencies
-  - break down work
-  - backlog
-  - scope tasks
-metadata:
-  author: ergo
-  version: 0.11.1
+  commits, multiple concerns like API + UI + tests), scope tasks into claimable
+  units, manage agent work queues, coordinate parallel work across agents, or
+  update task state (done, blocked, error, canceled) — even without naming ergo.
+  Trigger when a `.ergo/` directory exists and the user asks about plans, tasks,
+  or work status. Also trigger for "what should I work on next" or "what's left
+  to do". Do NOT trigger for other task trackers (Linear, Jira, Asana),
+  GitHub/GitLab project boards, strategic roadmap planning, build task runners
+  (Taskfile, Make), or single-file bug fixes and refactors.
 ---
 
 <!-- TOC: When to Use | Critical Rules | Planning | Quick Workflow | Essential Commands | Dependencies | Results | State Machine | Execution | Troubleshooting | References -->
@@ -58,7 +41,7 @@ metadata:
 | **`todo`/`done`/`canceled` clear claim** | Ownership only while active |
 | **No cross-kind deps** | task-to-task or epic-to-epic only; no task-to-epic |
 | **No cycles** | Dependency cycles are rejected |
-| **Use `printf '%s'`** | Reliable JSON delivery; heredocs can be flaky in some tooling |
+| **Prefer flags; use `echo` for JSON piping** | Flags work on all OSes; `echo '{...}' \| ergo` works cross-platform (bash, PowerShell, cmd). Avoid `printf` (Unix-only) and heredocs (fragile). |
 | **Don't commit `.ergo/` per-task** | Commit `.ergo/` once when epic completes |
 
 ## Planning Methodology
@@ -113,18 +96,21 @@ Present an executive summary to the user for approval before implementation.
 ## Quick Workflow
 
 ```bash
-AGENT="sonnet@agent-host"
-
 # 1. Claim oldest ready task
-ergo --json claim --agent "$AGENT"
+ergo --json claim --agent sonnet@agent-host
 
 # 2. Do the work described in the task body
 
 # 3. Attach results and mark done
-printf '%s' '{"state":"done","result_path":"src/auth.go","result_summary":"Auth module"}' | ergo set ABCDEF
+ergo set ABCDEF --state done --result-path src/auth.go --result-summary "Auth module"
 
 # 4. Repeat -- claim next ready task
-ergo --json claim --agent "$AGENT"
+ergo --json claim --agent sonnet@agent-host
+```
+
+**Quick completion shortcut:** For trivial tasks, skip the claim cycle — go straight from `todo` to `done`:
+```bash
+ergo set ABCDEF --state done
 ```
 
 ## Essential Commands
@@ -140,19 +126,19 @@ ergo where                   # Print active .ergo/ path
 
 ```bash
 # Epic (grouping node, no state)
-printf '%s' '{"title":"Auth","body":"Signup and login"}' | ergo new epic
+ergo new epic --title "Auth" --body "Signup and login"
 
 # Task (unit of work with state)
-printf '%s' '{"title":"Hash passwords","body":"Use bcrypt","epic":"OFKSTE"}' | ergo new task
+ergo new task --title "Hash passwords" --body "Use bcrypt" --epic OFKSTE
 
 # Atomic create-and-claim (claim implies state=doing)
-printf '%s' '{"title":"Fix CVE","claim":"sonnet@agent-host"}' | ergo new task
+ergo new task --title "Fix CVE" --claim sonnet@agent-host
+
+# JSON piping (when flags aren't sufficient, e.g. complex bodies)
+echo '{"title":"Auth","body":"Signup and login"}' | ergo new epic
 
 # Multi-line body via --body-stdin (stdin is literal text, not JSON)
-printf '%s\n' '## Goal' '- Implement login' | ergo new task --body-stdin --title "Login flow" --epic OFKSTE
-
-# Flags-only (when stdin is TTY)
-ergo new task --title "Login" --body "Implement signup" --epic OFKSTE
+echo "## Goal" | ergo new task --body-stdin --title "Login flow" --epic OFKSTE
 ```
 
 ### Plan a Feature (atomic)
@@ -160,7 +146,7 @@ ergo new task --title "Login" --body "Implement signup" --epic OFKSTE
 Create epic + tasks + dependencies in one call. `after` references task titles (exact, case-sensitive).
 
 ```bash
-printf '%s' '{"title":"Auth","body":"User auth system","tasks":[{"title":"Middleware","body":"JWT validation"},{"title":"Login","body":"POST /login","after":["Middleware"]},{"title":"Signup","body":"POST /signup","after":["Middleware"]}]}' | ergo --json plan
+echo '{"title":"Auth","body":"User auth system","tasks":[{"title":"Middleware","body":"JWT validation"},{"title":"Login","body":"POST /login","after":["Middleware"]},{"title":"Signup","body":"POST /signup","after":["Middleware"]}]}' | ergo --json plan
 ```
 
 ### Claim Work
@@ -181,36 +167,38 @@ If no tasks are ready: prints message, exits 0 (not an error).
 ### Update State
 
 ```bash
-# Mark done
-printf '%s' '{"state":"done"}' | ergo set ABCDEF
+# Mark done (flags — preferred, works on all OSes)
+ergo set ABCDEF --state done
 
 # Mark done with results
-printf '%s' '{"state":"done","result_path":"docs/spec.md","result_summary":"Spec v1"}' | ergo set ABCDEF
+ergo set ABCDEF --state done --result-path docs/spec.md --result-summary "Spec v1"
 
 # Mark blocked
-printf '%s' '{"state":"blocked"}' | ergo set ABCDEF
+ergo set ABCDEF --state blocked
 
 # Mark error (requires claim -- pass --agent if unclaimed)
-printf '%s' '{"state":"error"}' | ergo set ABCDEF
+ergo set ABCDEF --state error --agent sonnet@agent-host
 
 # Cancel
-printf '%s' '{"state":"canceled"}' | ergo set ABCDEF
+ergo set ABCDEF --state canceled
 
 # Reopen (done/canceled -> todo)
-printf '%s' '{"state":"todo"}' | ergo set ABCDEF
+ergo set ABCDEF --state todo
 
 # Update body via --body-stdin
-printf '%s\n' '## Status' '- Blocked on review' | ergo set ABCDEF --body-stdin --state blocked
+echo "## Status" | ergo set ABCDEF --body-stdin --state blocked
 
-# Flags-only (TTY)
-ergo set ABCDEF --state done
+# JSON piping (alternative — also cross-platform)
+echo '{"state":"done","result_path":"docs/spec.md","result_summary":"Spec v1"}' | ergo set ABCDEF
 ```
 
 ### View Work
 
 ```bash
-ergo --json list                       # All active work
-ergo --json list --ready               # Only ready tasks (deps satisfied)
+ergo --json list                       # Active work (todo/doing/blocked/error)
+                                       # Done tasks within active epics shown for context
+                                       # Orphan done tasks and fully-done epics hidden
+ergo --json list --ready               # Only ready tasks (deps satisfied, unclaimed)
 ergo --json list --epic OFKSTE         # Tasks within epic (includes done for context)
 ergo --json list --epics               # Only epics
 ergo --json list --all                 # Include done and canceled
@@ -218,6 +206,8 @@ ergo --json list --all                 # Include done and canceled
 ergo --json show ABCDEF                # Task/epic detail (epics include children with bodies)
 ergo show ABCDEF                       # Human-readable Markdown
 ```
+
+Flag conflicts: `--ready` and `--all` are mutually exclusive. `--epics` cannot combine with `--ready`, `--all`, or `--epic`.
 
 ### Dependencies
 
@@ -232,7 +222,7 @@ ergo sequence rm TASK_A TASK_B         # Remove: B no longer depends on A
 Results are pointers to project files. Multiple calls accumulate (newest first). Only attach when the task produced a concrete deliverable — don't create standalone files just to have a link.
 
 ```bash
-printf '%s' '{"result_path":"docs/report.md","result_summary":"Final report"}' | ergo set GHIJKL
+ergo set GHIJKL --result-path docs/report.md --result-summary "Final report"
 ```
 
 Both `result_path` and `result_summary` are required together. Summary: single-line, max 120 chars.
@@ -260,16 +250,20 @@ ergo compact                 # Collapse log to current state (physical deletion)
 
 ## State Machine
 
-```
-States: todo | doing | done | blocked | canceled | error
+### Transitions
 
-todo ──→ doing ──→ done
- │        │ │       │
- │        │ │       └──→ todo (reopen)
- │        │ └──→ blocked
- │        └──→ error ──→ doing (retry) / todo (reassign) / canceled
- └──→ canceled
-```
+| From | Allowed To |
+|------|------------|
+| `todo` | `doing`, `done`, `blocked`, `canceled` |
+| `doing` | `todo`, `done`, `blocked`, `canceled`, `error` |
+| `blocked` | `todo`, `doing`, `done`, `canceled` |
+| `done` | `todo` (reopen) |
+| `canceled` | `todo` (reopen) |
+| `error` | `doing` (retry), `todo` (reassign), `canceled` (give up) |
+
+`todo → done` is intentional — it allows quick completions without a claim cycle. If a task is trivial, just mark it done directly.
+
+### Claim Invariants
 
 | State | Claim required? |
 |-------|----------------|
@@ -313,11 +307,13 @@ Epics only support: `title`, `body`.
 - Parsing human-mode output instead of using `--json`
 - Leaving tasks in `doing` after finishing work
 - Forgetting `--agent` when claiming
-- Creating task-to-epic dependencies (forbidden)
-- Using heredocs for JSON input (fragile; use `printf '%s'`)
-- Assuming epics have state (they don't -- they're structural)
+- Creating task-to-epic dependencies (forbidden — same-kind only)
+- Using `printf` (Unix-only) or heredocs for JSON input — use flags or `echo` for cross-platform compatibility
+- Assuming epics have state (they don't — they're structural grouping nodes)
 - Writing "TBD"/"Consult Me" in task bodies instead of resolving during planning
 - Committing `.ergo/` in every per-task commit
+- Claiming then immediately completing trivial tasks — use `todo → done` directly
+- Combining `--ready` with `--all`, or `--epics` with other list filters
 
 ## Troubleshooting
 
@@ -327,7 +323,9 @@ ergo --json list             # Check current state
 ergo quickstart              # Full reference manual
 ```
 
-**"Lock busy"**: Another ergo process holds the lock. Retry after a moment.
+**"Lock busy"**: Another ergo process holds the lock. Lock is fail-fast (non-blocking), so just retry the command. Don't wait long — the lock is only held during a single mutation.
+
+**Missing tasks in `list`?** Default view hides done/canceled orphans and fully-done epics. Use `--all` to see everything.
 
 ## References
 
