@@ -42,6 +42,29 @@ Common variants:
   - Change state (uses existing claim if present):
     {{CMD}}printf '%s' '{"state":"blocked"}' | ergo set ABCDEF{{RESET}}
 
+{{HEADER}}2b. MULTI-AGENT / TEAM WORKFLOW{{RESET}}
+
+Multiple agents claim from the same backlog. Ergo serializes writes — race-safe.
+
+Lead creates the plan:
+  {{CMD}}ergo --json plan < plan.json{{RESET}}
+
+Each teammate runs the core loop independently:
+  {{CMD}}ergo --json claim --agent sonnet-1@claude-code{{RESET}}
+  {{CMD}}ergo --json claim --agent sonnet-2@claude-code{{RESET}}
+  Only one agent wins per task. Losers get the next ready task.
+
+Dependencies are enforced automatically — blocked tasks never appear in claim results.
+
+Monitor all agents:
+  {{CMD}}ergo --json list{{RESET}}
+  Shows state and {{BOLD}}claimed_by{{RESET}} for every task.
+
+When team finishes:
+  1) Verify no tasks in `doing`: {{CMD}}ergo --json list{{RESET}}
+  2) Commit and push `.ergo/`
+  3) Prune: {{CMD}}ergo prune --yes{{RESET}}
+
 {{HEADER}}3. CREATE WORK (JSON stdin){{RESET}}
 
 Use `printf '%s'` for reliable JSON delivery. Heredocs (`<<'JSON'`) can work too, but some terminals/tooling don’t support them reliably. All fields are strings.

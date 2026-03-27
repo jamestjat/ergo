@@ -44,6 +44,35 @@ ergo set ABCDEF --state blocked
 # If no tasks ready: prints message, exit 0
 ```
 
+## 2b. Multi-Agent / Team Workflow
+
+Multiple agents claim from the same backlog. Ergo serializes writes — race-safe.
+
+```bash
+# Lead creates the plan
+ergo --json plan < plan.json
+
+# Each teammate runs the core loop independently
+ergo --json claim --agent sonnet-1@claude-code
+ergo --json claim --agent sonnet-2@claude-code
+# Only one agent wins per task. Losers get the next ready task.
+```
+
+Dependencies are enforced automatically — blocked tasks never appear in claim results.
+
+```bash
+# Monitor all agents
+ergo --json list
+# Shows state and claimed_by for every task
+
+# When team finishes:
+# 1. Verify no tasks in doing
+ergo --json list
+# 2. Commit and push .ergo/
+# 3. Prune
+ergo prune --yes
+```
+
 ## 3. Create Work
 
 Prefer flags for simple inputs — they work identically on all OSes. When JSON piping is needed, use shell-appropriate quoting. All fields are strings. Unknown keys rejected with suggestions.
