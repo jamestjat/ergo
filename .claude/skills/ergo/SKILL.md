@@ -70,7 +70,7 @@ Task body template (trim to fit — omit empty sections):
 
 ### Dependencies
 
-Add edges only for true ordering constraints — maximize parallelism and task independence.
+Add edges only for true ordering constraints — maximize parallelism and task independence. Edges must be same-kind: task→task or epic→epic. Task→epic and epic→task edges are rejected by the CLI. Task→task edges can cross epic boundaries.
 
 ## Plan review
 
@@ -93,7 +93,7 @@ Fix what you find, then **present an executive summary to the user for approval*
 3. Commit using repo conventions. **Do not** include `.ergo/` files in per-task commits.
 4. Mark task done. On completion:
    - **Completion note** — update the task body with a brief note on what was done: decisions made, approach taken, anything non-obvious. Think PR description, not essay.
-   - **Result link** — if the task produced a concrete deliverable (a new file, component, doc), attach it with `result_path`. **Do not** create standalone result files just to have a link.
+   - **Result link** — if the task produced a concrete deliverable (a new file, component, doc), attach it with `result_path` *and* `result_summary` (single-line, max 120 chars — both are required together). **Do not** create standalone result files just to have a link.
    - **After completing a spike** — update dependent tasks with what was learned so the knowledge flows forward.
    - If a task can't be completed, mark it blocked or error — never leave tasks in progress.
 5. **If the plan needs to change** — a task is unnecessary, scope shifted, new work emerged — update the plan and note why. Plans are living documents, not contracts.
@@ -108,7 +108,7 @@ Fix what you find, then **present an executive summary to the user for approval*
 | **Never leave tasks `doing`** | Resolve to `done`, `blocked`, `error`, or `canceled`. |
 | **`doing`/`error` require a claim** | Shows who's working or who failed. |
 | **`todo`/`done`/`canceled` clear the claim** | Ownership only while active. |
-| **Prefer flags over JSON piping** | Flags work on every OS; piping requires shell-aware quoting. |
+| **Prefer flags over JSON piping for `new`/`set`** | Flags work on every OS; piping requires shell-aware quoting. `ergo plan` is the exception — it requires a single JSON object on stdin and has no flags-only form. |
 | **Don't commit `.ergo/` per task** | Commit `.ergo/` once, when an epic completes. |
 
 ## Multi-agent coordination
