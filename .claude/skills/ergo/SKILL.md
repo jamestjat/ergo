@@ -18,7 +18,12 @@ Turn a feature request into a repo-local plan tracked by `ergo`: a backlog of we
 
 ## Bootstrap
 
-1. Expect `ergo` to be globally installed. If missing, ask the user to install it.
+1. Expect `ergo` to be globally installed. If missing, install a precompiled binary from the [releases page](https://github.com/jamestjat/ergo/releases) — pick the archive matching the host OS/arch (`darwin_arm64`, `darwin_amd64`, `linux_arm64`, `linux_amd64`, `windows_arm64`, `windows_amd64`), extract, and move `ergo` onto `PATH`. On macOS/Linux:
+   ```bash
+   # replace VERSION, OS, ARCH
+   curl -sSL https://github.com/jamestjat/ergo/releases/download/vVERSION/ergo_VERSION_OS_ARCH.tar.gz \
+     | tar -xz -C /usr/local/bin ergo
+   ```
 2. Run `ergo --help` and `ergo quickstart` to learn the CLI before creating plans.
 
 ## Planning
